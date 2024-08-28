@@ -304,5 +304,4 @@ class Survey extends TelegramBot{
         }
         return results.toString();
     }
-
 }

@@ -66,6 +66,7 @@ class TelegramBot extends TelegramLongPollingBot{
     public void onUpdateReceived(Update update) {
         if(update.hasCallbackQuery()){
             System.out.println("Has Callback");
+
             surveyResultsUpdate(update);
             System.out.println(answers.get(update.getCallbackQuery().getData()));
         }
@@ -75,7 +76,7 @@ class TelegramBot extends TelegramLongPollingBot{
         Long userId = update.getMessage().getChatId();
         String text = update.getMessage().getText();
 
-        String state = userState.getOrDefault(userId,"START");//user-admin 1 state
+        String state = userState.getOrDefault(userId,"START");//user 1 state
 
         switch (state){
             case "START":
@@ -91,7 +92,7 @@ class TelegramBot extends TelegramLongPollingBot{
                 if (isAvailable) {
                     waitingForPoll(userId,update.getMessage());
                 } else {
-                    sendMessage(userId,"Sorry, the survey right is unavailable");
+                    sendMessage(userId,"Sorry, the survey right now is unavailable");
                 }
                 break;
             case "WAITING_FOR_ANSWER":
@@ -103,20 +104,20 @@ class TelegramBot extends TelegramLongPollingBot{
         }
     }
     public void surveyResultsUpdate(Update response){
-        String callBackQuery = response.getCallbackQuery().getData().split("_")[0];
+        String callBackQuery = response.getCallbackQuery().getData().split("_")[0];//callBackQuery-> "option1_id"
         int id = Integer.parseInt(response.getCallbackQuery().getData().split("_")[1]);
         int current_answer_count =surveys.get(id).getAnswers().get(callBackQuery);
         Long userId = response.getCallbackQuery().getFrom().getId();
-        Survey current_survey = surveys.get(id);
+        Survey current_survey = surveys.get(id);//Map{id-> Survey}
 
         if(surveys.containsKey(id)){
             if (time<300) {
                 if(!current_survey.getVoters().containsValue(userId))
                 {
-                    current_survey.addVoters(id,userId);
-                    voters.add(userId);
-                    current_survey.setAnswers(callBackQuery,current_answer_count+1);
-                    sendMessage(response.getCallbackQuery().getFrom().getId(),"Your vote has been entered");
+                    current_survey.addVoters(id,userId);//to check each question, if he already voted
+                    voters.add(userId);//to count later the sum of voters
+                    current_survey.setAnswers(callBackQuery,current_answer_count+1);//add another vote to the current option
+                    sendMessage(userId,"Your vote has been entered");
                 }
                 else {
                     sendMessage(response.getCallbackQuery().getFrom().getId(),"You already voted");
@@ -128,7 +129,7 @@ class TelegramBot extends TelegramLongPollingBot{
             sendMessage(response.getCallbackQuery().getFrom().getId(),"Survey expired");
     }
 
-    public void calcResults(){
+    public void calcResults(){//iterate through the List<Surveys>
         for(Map.Entry<Integer,Survey> entry:surveys.entrySet()){
             result.add(entry.getValue().calc(voters.size()));
         }
@@ -153,7 +154,7 @@ class TelegramBot extends TelegramLongPollingBot{
                 userState.put(userId,"WAITING_FOR_POLL");
                 break;
             default:
-                sendMessage(userId,"That's not an option \nEnter '/survey' to subscribe");
+                sendMessage(userId,"That's not an option \nEnter '/survey' to send a survey");
                 break;
         }
     }
@@ -165,7 +166,7 @@ class TelegramBot extends TelegramLongPollingBot{
             subscribers.add(userId);
             sendMessage(userId,"You have successfully subscribed");
             sendMessageToSubscribers("New subscriber: "+username);
-            sendMessage(userId,"Welcome! this is a bot designed to send surveys, you have 1-3 questions with 2-4 answers each\nMenu:\n'/survey' to send a survey");
+            sendMessage(userId,"Welcome "+username+"!!!\nthis is a bot designed to send surveys, you have 1-3 questions with 2-4 answers each\nMenu:\n'/survey' to send a survey");
             userState.put(userId,"WAITING_FOR_ANSWER");
         }
     }
@@ -238,23 +239,24 @@ class TelegramBot extends TelegramLongPollingBot{
 class Survey extends TelegramBot{
     private String id;
     private String question;
-    private Map<String,Integer> answers= new HashMap<>();
+    private Map<String,Integer> answers= new HashMap<>();//Map<"Option_1"->0>
     private SendMessage message =new SendMessage();
-    private Map<String,Double> results = new HashMap<>();
+    private Map<String,Double> results = new HashMap<>();//Map<"Option_1" -> 0.0%>
+    private Map<Integer,Long> voters = new HashMap<>();//Map<id -> userId>
 
     public Map<Integer, Long> getVoters() {
         return voters;
-    }
+    }//each time a user votes, I use that to check if he already voted
 
     public void addVoters(int id, Long userId) {
         this.voters.put(id,userId);
-    }
+    }//each time a user votes he is being added to the list
 
-    private Map<Integer,Long> voters = new HashMap<>();
+
 
     public Map<String, Integer> getAnswers() {
         return answers;
-    }
+    }//to check the current count of votes, in order to increase it each time a user votes
     public void setAnswers(String answer,int count) {
         answers.put(answer,count);
     }
@@ -267,27 +269,26 @@ class Survey extends TelegramBot{
     public Survey(String question, List<String> options, String id){
         this.id = id;
         this.question=question;
-        System.out.println("Survey:"+id);
 
         message.setText(question);
 
 
         InlineKeyboardMarkup inlineKeyboardMarkup = new InlineKeyboardMarkup();
 
-        List<List<InlineKeyboardButton>> rowsInline = new ArrayList<>();
+        List<List<InlineKeyboardButton>> rowsInlines = new ArrayList<>();
 
         List<InlineKeyboardButton> rowInline1 = new ArrayList<>();
 
         for(String option:options){
             InlineKeyboardButton button = new InlineKeyboardButton();
             button.setText(option);
-            button.setCallbackData(option+"_"+id);
+            button.setCallbackData(option+"_"+id);//the reply String
 
             rowInline1.add(button);
             this.answers.put(option,0);
         }
-        rowsInline.add(rowInline1);
-        inlineKeyboardMarkup.setKeyboard(rowsInline);
+        rowsInlines.add(rowInline1);
+        inlineKeyboardMarkup.setKeyboard(rowsInlines);
         message.setReplyMarkup(inlineKeyboardMarkup);
     }
     public void executeSurvey(Long userId){
@@ -305,3 +306,6 @@ class Survey extends TelegramBot{
         return results.toString();
     }
 }
+//keyboard
+        //row 1 - b1, b2, b3
+        //row 2 - b1, b2, b3

@@ -32,9 +32,11 @@ class TelegramBot extends TelegramLongPollingBot{
     List<Long> voters = new ArrayList<>();
 
     Map<Integer,Survey> surveys = new HashMap<>();
-    int time;
+    int time =0;
     boolean isAvailable =true;
     List<String> result = new ArrayList<>();
+    int suspend;
+
     Thread timer = new Thread(()->{
         while (time < 300){
             time++;
@@ -98,6 +100,46 @@ class TelegramBot extends TelegramLongPollingBot{
             case "WAITING_FOR_ANSWER":
                 waitingForAnswer(userId,text);
                 break;
+            case "WAITING_FOR_ANSWER2":
+                if (text.equalsIgnoreCase("/send")){
+                    sendMessage(userId,"Great!");
+                    timer.start();
+                    sendSurveyToSubscribers(userId);
+                    isAvailable =false;
+                    sendMessage(userId,"Survey has been successfully sent");
+                    userState.put(userId,"START");
+                }
+                if (text.equalsIgnoreCase("/suspend")){
+                    sendMessage(userId,"For how long - in minutes (enter a digit 1-9)");
+                    userState.put(userId,"WAITING_FOR_SUSPENDER");
+                }
+                if(!text.equalsIgnoreCase("/send") && !text.equalsIgnoreCase("/suspend")){
+                    sendMessage(userId,"ERROR! Try again");
+                }
+                break;
+            case "WAITING_FOR_SUSPENDER":
+                if (text.matches("//d+")){
+                    suspend = suspend+ Integer.parseInt(text)*60;
+                    sendMessage(userId,"Great the survey will be sent in "+Integer.parseInt(text)+" minutes");
+                }else{
+                    sendMessage(userId,"Please enter a number (1-9)");
+                    Thread suspender = new Thread(()->{
+                        while (suspend>0){
+                            suspend--;
+                            try {
+                                Thread.sleep(1000);
+                            } catch (InterruptedException e) {
+                                throw new RuntimeException(e);
+                            }
+                        }
+                        timer.start();
+                        sendSurveyToSubscribers(userId);
+                        isAvailable =false;
+                        sendMessage(userId,"Suspend time has ended and the surveys has been sent");
+                    });
+                    suspender.start();
+                }
+                break;
             default:
                 userState.put(userId,"START");
                 break;
@@ -127,6 +169,9 @@ class TelegramBot extends TelegramLongPollingBot{
             }
         }else
             sendMessage(response.getCallbackQuery().getFrom().getId(),"Survey expired");
+        if(subscribers.size()==voters.size()){
+            time = 300;
+        }
     }
 
     public void calcResults(){//iterate through the List<Surveys>
@@ -137,38 +182,36 @@ class TelegramBot extends TelegramLongPollingBot{
     }
     public void start(Long userId){
         if(!subscribers.contains(userId)){
-            sendMessage(userId,"Menu:\n'/sub' to subscribe");
-            userState.put(userId,"WAITING_FOR_SUB");
+            if (isAvailable) {
+                sendMessage(userId,"Menu:\n'/sub' to subscribe");
+                userState.put(userId,"WAITING_FOR_SUB");
+            } else {
+                sendMessage(userId,"You cannot join the community right now, survey is in progress");
+            }
         }else{
-            sendMessage(userId,"Welcome! this is a bot designed to send surveys, you have 1-3 questions with 2-4 answers each\nMenu:\n'/survey' to send a survey");
-            userState.put(userId,"START");
+            if (isAvailable) {
+                sendMessage(userId,"Welcome! this is a bot designed to send surveys, you have 1-3 questions with 2-4 answers each\nMenu:\n'/survey' to send a survey");
+                userState.put(userId,"WAITING_FOR_ANSWER");
+            } else {
+                sendMessage(userId,"'/survey' is unavailable, due to survey in progress");
+            }
         }
     }
     public void waitingForAnswer(Long userId, String text){
-        switch (text){
-            case "/sub":
-                waitingForSub(userId,text);
-                break;
-            case "/survey":
-                sendMessage(userId,"Enter the first question (Enter it as a poll, with 2-4 options)");
-                userState.put(userId,"WAITING_FOR_POLL");
-                break;
-            default:
-                sendMessage(userId,"That's not an option \nEnter '/survey' to send a survey");
-                break;
+        if (text.equals("/survey")) {
+            sendMessage(userId, "Enter the first question (Enter it as a poll, with 2-4 options)");
+            userState.put(userId, "WAITING_FOR_POLL");
+        } else {
+            sendMessage(userId, "That's not an option \nEnter '/survey' to send a survey");
         }
     }
     public void waitingForSub(Long userId,String username){
-        if(subscribers.contains(userId)){
-            sendMessage(userId,"You're already subscribed");
-
-        }else{
-            subscribers.add(userId);
-            sendMessage(userId,"You have successfully subscribed");
-            sendMessageToSubscribers("New subscriber: "+username);
-            sendMessage(userId,"Welcome "+username+"!!!\nthis is a bot designed to send surveys, you have 1-3 questions with 2-4 answers each\nMenu:\n'/survey' to send a survey");
-            userState.put(userId,"WAITING_FOR_ANSWER");
-        }
+        subscribers.add(userId);
+        sendMessage(userId,"You have successfully subscribed");
+        sendMessageToSubscribers("New subscriber: "+username);
+        sendMessageToSubscribers("Now the community has "+subscribers.size()+" members");
+        sendMessage(userId,"Welcome "+username+"!!!\nthis is a bot designed to send surveys, you have 1-3 questions with 2-4 answers each\nMenu:\n'/survey' to send a survey");
+        userState.put(userId,"WAITING_FOR_ANSWER");
     }
     public void waitingForPoll(Long userId,Message response){
         if (response.hasPoll()){
@@ -181,11 +224,13 @@ class TelegramBot extends TelegramLongPollingBot{
                 sendMessage(userId,"Poll has been successfully added");
                 if(surveys.size()==3) {
                     sendMessage(userId, "Great! You have reached max questions");
-                    sendSurveyToSubscribers(userId);
-                    timer.start();
-                    sendMessage(userId,"Surveys has been successfully sent");
-                    userState.put(userId,"WAITING_FOR_RESULTS");
-                    isAvailable =false;
+//                    sendSurveyToSubscribers(userId);
+//                    timer.start();
+//                    sendMessage(userId,"Surveys has been successfully sent");
+//                    userState.put(userId,"WAITING_FOR_RESULTS");
+//                    isAvailable =false;
+                    sendMessage(userId,"Menu:\n'/send' to send the survey immediately\n'/suspend' to send it with delay");
+                    userState.put(userId,"WAITING_FOR_ANSWER2");
                 }
                 else
                     sendMessage(userId,"Menu:\nEnter another poll (2-4 options) if you'd like to add a question\n '/done' to finish and send the surveys");
@@ -195,11 +240,12 @@ class TelegramBot extends TelegramLongPollingBot{
         }else{
             if(response.getText().equalsIgnoreCase("/done")) {
                 sendMessage(userId, "Great!");
-                sendSurveyToSubscribers(userId);
-                timer.start();
-                sendMessage(userId,"Surveys has been successfully sent");
-                userState.put(userId,"WAITING_FOR_RESULTS");
-                isAvailable =false;
+//                sendSurveyToSubscribers(userId);
+//                timer.start();
+//                sendMessage(userId,"Surveys has been successfully sent");
+//                isAvailable =false;
+                sendMessage(userId,"Menu:\n'/send' to send the survey immediately");
+                userState.put(userId,"WAITING_FOR_ANSWER2");
             }else
                 sendMessage(userId,"Error,Try again");
         }

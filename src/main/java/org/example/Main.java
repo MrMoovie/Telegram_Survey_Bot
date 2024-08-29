@@ -30,6 +30,7 @@ class TelegramBot extends TelegramLongPollingBot{
     Map<String,Integer> answers = new HashMap<>();
 
     List<Long> voters = new ArrayList<>();
+    int sumVotes;
 
     Map<Integer,Survey> surveys = new HashMap<>();
     int time =0;
@@ -47,8 +48,9 @@ class TelegramBot extends TelegramLongPollingBot{
             }
         }
         calcResults();
-        sendMessageToSubscribers("Time limit has been reached, the results are:");
-        sendMessageToSubscribers(result.toString());
+        if ((subscribers.size()-1)*surveys.size()==sumVotes){sendMessageToSubscribers("Everybody have answered, the results are:");}
+        else{sendMessageToSubscribers("Time limit has been reached, the results are:");}
+        sendMessageToSubscribers(result.toString().replace("}, ","%\n").replace("{"," ").replace("[","").replace("]","").replace("}","%"));
         isAvailable = true;
         time = 0;
         surveys.clear();
@@ -101,28 +103,30 @@ class TelegramBot extends TelegramLongPollingBot{
                 waitingForAnswer(userId,text);
                 break;
             case "WAITING_FOR_ANSWER2":
-                if (text.equalsIgnoreCase("/send")){
-                    sendMessage(userId,"Great!");
-                    timer.start();
-                    sendSurveyToSubscribers(userId);
-                    isAvailable =false;
-                    sendMessage(userId,"Survey has been successfully sent");
-                    userState.put(userId,"START");
-                }
-                if (text.equalsIgnoreCase("/suspend")){
-                    sendMessage(userId,"For how long - in minutes (enter a digit 1-9)");
-                    userState.put(userId,"WAITING_FOR_SUSPENDER");
-                }
-                if(!text.equalsIgnoreCase("/send") && !text.equalsIgnoreCase("/suspend")){
-                    sendMessage(userId,"ERROR! Try again");
+                if (isAvailable) {
+                    if (text.equalsIgnoreCase("/send")){
+                        sendMessage(userId,"Great!");
+                        timer.start();
+                        sendSurveyToSubscribers(userId);
+                        isAvailable =false;
+                        sendMessage(userId,"Survey has been successfully sent");
+                        userState.put(userId,"START");
+                    }
+                    if (text.equalsIgnoreCase("/suspend")){
+                        sendMessage(userId,"For how long - in minutes (enter a digit 1-9)");
+                        userState.put(userId,"WAITING_FOR_SUSPENDER");
+                    }
+                    if(!text.equalsIgnoreCase("/send") && !text.equalsIgnoreCase("/suspend")){
+                        sendMessage(userId,"ERROR! Try again");
+                    }
+                } else {
+                    sendMessage(userId,"Sorry, survey is in progress,wait: "+time/60);
                 }
                 break;
             case "WAITING_FOR_SUSPENDER":
-                if (text.matches("//d+")){
+                if (text.matches("\\d+")){
                     suspend = suspend+ Integer.parseInt(text)*60;
                     sendMessage(userId,"Great the survey will be sent in "+Integer.parseInt(text)+" minutes");
-                }else{
-                    sendMessage(userId,"Please enter a number (1-9)");
                     Thread suspender = new Thread(()->{
                         while (suspend>0){
                             suspend--;
@@ -138,6 +142,8 @@ class TelegramBot extends TelegramLongPollingBot{
                         sendMessage(userId,"Suspend time has ended and the surveys has been sent");
                     });
                     suspender.start();
+                }else{
+                    sendMessage(userId,"Please enter a number (1-9)");
                 }
                 break;
             default:
@@ -157,7 +163,8 @@ class TelegramBot extends TelegramLongPollingBot{
                 if(!current_survey.getVoters().containsValue(userId))
                 {
                     current_survey.addVoters(id,userId);//to check each question, if he already voted
-                    voters.add(userId);//to count later the sum of voters
+                    if(!voters.contains(userId)){voters.add(userId);}//to count later the sum of voters
+                    sumVotes++;
                     current_survey.setAnswers(callBackQuery,current_answer_count+1);//add another vote to the current option
                     sendMessage(userId,"Your vote has been entered");
                 }
@@ -169,7 +176,7 @@ class TelegramBot extends TelegramLongPollingBot{
             }
         }else
             sendMessage(response.getCallbackQuery().getFrom().getId(),"Survey expired");
-        if(subscribers.size()==voters.size()){
+        if((subscribers.size()-1)*surveys.size()==sumVotes){
             time = 300;
         }
     }
@@ -178,7 +185,6 @@ class TelegramBot extends TelegramLongPollingBot{
         for(Map.Entry<Integer,Survey> entry:surveys.entrySet()){
             result.add(entry.getValue().calc(voters.size()));
         }
-
     }
     public void start(Long userId){
         if(!subscribers.contains(userId)){
@@ -244,7 +250,7 @@ class TelegramBot extends TelegramLongPollingBot{
 //                timer.start();
 //                sendMessage(userId,"Surveys has been successfully sent");
 //                isAvailable =false;
-                sendMessage(userId,"Menu:\n'/send' to send the survey immediately");
+                sendMessage(userId,"Menu:\n'/send' to send the survey immediately\n'/suspend' to send it with delay");
                 userState.put(userId,"WAITING_FOR_ANSWER2");
             }else
                 sendMessage(userId,"Error,Try again");
@@ -349,7 +355,7 @@ class Survey extends TelegramBot{
         for(Map.Entry<String,Integer> entry:this.answers.entrySet()){
             this.results.put(entry.getKey(),  (entry.getValue()/(double)voters)*100);
         }
-        return results.toString();
+        return "The results for '"+question+"' are:\n"+results.toString().replace(",","%\n");
     }
 }
 //keyboard

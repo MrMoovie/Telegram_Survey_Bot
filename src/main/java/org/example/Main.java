@@ -240,11 +240,6 @@ class TelegramBot extends TelegramLongPollingBot{
                 sendMessage(userId,"Poll has been successfully added");
                 if(surveys.size()==3) {
                     sendMessage(userId, "Great! You have reached max questions");
-//                    sendSurveyToSubscribers(userId);
-//                    timer.start();
-//                    sendMessage(userId,"Surveys has been successfully sent");
-//                    userState.put(userId,"WAITING_FOR_RESULTS");
-//                    isAvailable =false;
                     sendMessage(userId,"Menu:\n'/send' to send the survey immediately\n'/suspend' to send it with delay");
                     userState.put(userId,"WAITING_FOR_ANSWER2");
                 }
@@ -256,10 +251,6 @@ class TelegramBot extends TelegramLongPollingBot{
         }else{
             if(response.getText().equalsIgnoreCase("/done")) {
                 sendMessage(userId, "Great!");
-//                sendSurveyToSubscribers(userId);
-//                timer.start();
-//                sendMessage(userId,"Surveys has been successfully sent");
-//                isAvailable =false;
                 sendMessage(userId,"Menu:\n'/send' to send the survey immediately\n'/suspend' to send it with delay");
                 userState.put(userId,"WAITING_FOR_ANSWER2");
             }else
@@ -368,6 +359,3 @@ class Survey extends TelegramBot{
         return "The results for '"+question+"' are:\n"+results.toString().replace(",","%\n");
     }
 }
-//keyboard
-        //row 1 - b1, b2, b3
-        //row 2 - b1, b2, b3

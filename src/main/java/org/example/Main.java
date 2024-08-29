@@ -51,14 +51,24 @@ class TelegramBot extends TelegramLongPollingBot{
         if ((subscribers.size()-1)*surveys.size()==sumVotes){sendMessageToSubscribers("Everybody have answered, the results are:");}
         else{sendMessageToSubscribers("Time limit has been reached, the results are:");}
         sendMessageToSubscribers(result.toString().replace("}, ","%\n").replace("{"," ").replace("[","").replace("]","").replace("}","%"));
-        isAvailable = true;
-        time = 0;
-        surveys.clear();
+        clear();
     });
 
     @Override
     public String getBotUsername() {
         return "@SPBVelvel_bot";
+    }
+    public void clear(){
+        subscribers.clear();
+        userState.clear();
+        answers.clear();
+        voters.clear();
+        sumVotes=0;
+        surveys.clear();
+        time =0;
+        isAvailable =true;
+        result.clear();
+        suspend =0;
     }
 
     @Override

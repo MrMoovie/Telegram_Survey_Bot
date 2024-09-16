@@ -56,7 +56,7 @@ class TelegramBot extends TelegramLongPollingBot{
 
     @Override
     public String getBotUsername() {
-        return "@SPBVelvel_bot";
+        return "@PalpatinVelvel_Bot";
     }
     public void clear(){
         subscribers.clear();
@@ -73,7 +73,7 @@ class TelegramBot extends TelegramLongPollingBot{
 
     @Override
     public String getBotToken() {
-        return "7171382432:AAHB94Bus5zKeGEmscNCAafayGv1q9yEl8s";
+        return "7486824932:AAHgjFQ5QOe87oUXzZyFff2P24BznOOq9aE";
     }
 
     @Override
@@ -122,12 +122,17 @@ class TelegramBot extends TelegramLongPollingBot{
                         sendMessage(userId,"Survey has been successfully sent");
                         userState.put(userId,"START");
                     }
-                    if (text.equalsIgnoreCase("/suspend")){
-                        sendMessage(userId,"For how long - in minutes (enter a digit 1-9)");
-                        userState.put(userId,"WAITING_FOR_SUSPENDER");
-                    }
-                    if(!text.equalsIgnoreCase("/send") && !text.equalsIgnoreCase("/suspend")){
-                        sendMessage(userId,"ERROR! Try again");
+                    if (subscribers.size()-1 != 0) {
+                        if (text.equalsIgnoreCase("/suspend")){
+                            sendMessage(userId,"For how long - in minutes (enter a digit 1-9)");
+                            userState.put(userId,"WAITING_FOR_SUSPENDER");
+                        }
+                        if(!text.equalsIgnoreCase("/send") && !text.equalsIgnoreCase("/suspend")){
+                            sendMessage(userId,"ERROR! Try again");
+                        }
+                    } else {
+                        sendMessage(userId,"Sorry, there aren't any subscribers right now, try again later");
+                        userState.put(userId,"START");
                     }
                 } else {
                     sendMessage(userId,"Sorry, survey is in progress,wait: "+time/60);

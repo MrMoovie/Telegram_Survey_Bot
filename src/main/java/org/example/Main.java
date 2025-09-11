@@ -56,7 +56,7 @@ class TelegramBot extends TelegramLongPollingBot{
 
     @Override
     public String getBotUsername() {
-        return "@PalpatinVelvel_Bot";
+        return "<BOT_USER_NAME>";
     }
     public void clear(){
         subscribers.clear();
@@ -73,7 +73,7 @@ class TelegramBot extends TelegramLongPollingBot{
 
     @Override
     public String getBotToken() {
-        return "7486824932:AAHgjFQ5QOe87oUXzZyFff2P24BznOOq9aE";
+        return "<<TOKEN>>";
     }
 
     @Override
